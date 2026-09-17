@@ -1,39 +1,84 @@
-import { Separator } from "@/components/ui/separator";
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { TypographyH2 } from "@/components/ui/typography";
-import { createServerSupabaseClient } from "@/lib/server-utils";
-import { redirect } from "next/navigation";
-import AddSpeciesDialog from "./add-species-dialog";
-import SpeciesCard from "./species-card";
+import { Separator } from "@/components/ui/separator";
 
-export default async function SpeciesList() {
-  // Create supabase server component client and obtain user session from stored cookie
-  const supabase = createServerSupabaseClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+interface Message {
+  role: "user" | "bot";
+  content: string;
+}
 
-  if (!session) {
-    // this is a protected route - only users who are signed in can view this route
-    redirect("/");
-  }
+export default function SpeciesChatbotPage() {
+  const [messages, setMessages] = useState<Message[]>([
+    { role: "bot", content: "Hi! Ask me anything about animal or plant species." },
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // Obtain the ID of the currently signed-in user
-  const sessionId = session.user.id;
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || loading) return;
 
-  const { data: species } = await supabase.from("species").select("*").order("id", { ascending: false });
+    const userText = input.trim();
+    setInput("");
+    setMessages((prev) => [...prev, { role: "user", content: userText }]);
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userText }),
+      });
+
+      const data = await res.json();
+      setMessages((prev) => [...prev, { role: "bot", content: data.response }]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "bot", content: "Error getting response. Please try again." },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <>
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
-        <TypographyH2>Species List</TypographyH2>
-        <AddSpeciesDialog userId={sessionId} />
-      </div>
-      <Separator className="my-4" />
-      <div className="flex flex-wrap justify-center">
-        {species?.map((species) => (
-          <SpeciesCard key={species.id} species={species} sessionId={sessionId} />
+    <div className="mx-auto flex h-[80vh] max-w-2xl flex-col p-4">
+      <TypographyH2>Species Chatbot</TypographyH2>
+      <Separator className="my-3" />
+
+      {/* Chat Messages */}
+      <div className="flex-1 space-y-3 overflow-y-auto rounded border p-4 bg-slate-50">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div
+              className={`rounded-lg px-3 py-2 text-sm max-w-[80%] ${
+                m.role === "user" ? "bg-black text-white" : "bg-white border text-slate-800"
+              }`}
+            >
+              {m.content}
+            </div>
+          </div>
         ))}
+        {loading && <p className="text-xs italic text-slate-400">Thinking...</p>}
       </div>
-    </>
+
+      {/* Paste Form Here: Submits when pressing Enter inside Input */}
+      <form onSubmit={handleSubmit} className="mt-4 flex gap-2">
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask about a species..."
+          disabled={loading}
+        />
+        <Button type="submit" disabled={loading || !input.trim()}>
+          Send
+        </Button>
+      </form>
+    </div>
   );
 }

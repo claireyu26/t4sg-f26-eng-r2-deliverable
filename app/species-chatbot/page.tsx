@@ -1,24 +1,51 @@
-/* eslint-disable */
 "use client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { TypographyH2, TypographyP } from "@/components/ui/typography";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 
 export default function SpeciesChatbot() {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [message, setMessage] = useState("");
   const [chatLog, setChatLog] = useState<{ role: "user" | "bot"; content: string }[]>([]);
-  const handleInput = () => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = "auto";
-      textarea.style.height = `${textarea.scrollHeight}px`;
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const trimmedMessage = message.trim();
+
+    if (!trimmedMessage || isLoading) {
+      return;
+    }
+
+    console.log("Submitting chatbot message:", trimmedMessage);
+    setChatLog((currentLog) => [...currentLog, { role: "user", content: trimmedMessage }]);
+    setMessage("");
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: trimmedMessage }),
+      });
+      const data = (await response.json()) as { response?: string; error?: string };
+
+      if (!response.ok) {
+        throw new Error(data.error ?? "Unable to get a chatbot response.");
+      }
+
+      setChatLog((currentLog) => [...currentLog, { role: "bot", content: data.response ?? "No response generated." }]);
+    } catch (error) {
+      console.error("Chatbot request failed:", error);
+      setChatLog((currentLog) => [
+        ...currentLog,
+        { role: "bot", content: "Sorry, I could not answer that right now." },
+      ]);
+    } finally {
+      setIsLoading(false);
     }
   };
-
-const handleSubmit = async () => {
-  // TODO: Implement this function
-}
 
 return (
     <>
@@ -59,25 +86,18 @@ return (
             ))
           )}
         </div>
-        {/* Textarea and submission */}
-        <div className="mt-4 flex flex-col items-end">
-          <textarea
-            ref={textareaRef}
+        {/* Input and submission */}
+        <form onSubmit={(event) => void handleSubmit(event)} className="mt-4 flex items-center gap-2">
+            <Input
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            onInput={handleInput}
-            rows={1}
             placeholder="Ask about a species..."
-            className="w-full resize-none overflow-hidden rounded border border-border bg-background p-2 text-sm text-foreground focus:outline-none"
+              disabled={isLoading}
           />
-          <button
-            type="button"
-            onClick={() => void handleSubmit()}
-            className="mt-2 rounded bg-primary px-4 py-2 text-background transition hover:opacity-90"
-          >
-            Enter
-          </button>
-        </div>
+            <Button type="submit" disabled={isLoading || !message.trim()}>
+              {isLoading ? "Sending..." : "Send"}
+            </Button>
+        </form>
       </div>
     </>
   );

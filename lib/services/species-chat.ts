@@ -1,9 +1,23 @@
-/* eslint-disable */
-// TODO: Import whatever service you decide to use. i.e. `import OpenAI from 'openai';`
+import { GoogleGenAI } from "@google/genai";
 
-// HINT: You'll want to initialize your service outside of the function definition
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-// TODO: Implement the function below
+const SYSTEM_PROMPT =
+  "You are a biodiversity chatbot. Only answer questions about animal and plant species. If a user asks about anything else, politely decline and remind them you only answer species-related questions.";
+
 export async function generateResponse(message: string): Promise<string> {
-  return "hello";
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3.6-flash",
+      contents: message,
+      config: {
+        systemInstruction: SYSTEM_PROMPT,
+      },
+    });
+
+    return response.text ?? "No response generated.";
+  } catch (error) {
+    console.error("Gemini API request failed:", error);
+    return "I had trouble retrieving information. Please try again.";
+  }
 }
