@@ -1,70 +1,90 @@
 /* eslint-disable */
 "use client";
-import { useRef, useEffect, useState  } from "react";
-import { select } from "d3-selection";
-import { scaleBand, scaleLinear, scaleOrdinal } from "d3-scale";
-import { max } from "d3-array";
-import { axisBottom, axisLeft } from "d3-axis"; // D3 is a JavaScript library for data visualization: https://d3js.org/
-import { csv } from "d3-fetch";
+import { useEffect, useRef } from "react";
+import * as d3 from "d3";
 
-// Example data: Only the first three rows are provided as an example
-// Add more animals or change up the style as you desire
-
-// TODO: Write this interface
-interface AnimalDatum  {
-
+interface AnimalDatum {
+  name: string;
+  speed: number;
+  diet: "herbivore" | "omnivore" | "carnivore";
 }
 
-
 export default function AnimalSpeedGraph() {
-  // useRef creates a reference to the div where D3 will draw the chart.
-  // https://react.dev/reference/react/useRef
-  const graphRef = useRef<HTMLDivElement>(null);
+  const ref = useRef<SVGSVGElement>(null);
 
-  const [animalData, setAnimalData] = useState<AnimalDatum[]>([]);
-
-  // TODO: Load CSV data
   useEffect(() => {
-    console.log("Implement CSV loading!")
+    d3.csv("/sample_animals.csv").then((raw) => {
+      const data: AnimalDatum[] = raw
+        .map((d: any) => ({
+          name: String(d.name).trim(),
+          speed: Number(d.speed),
+          diet: String(d.diet).trim().toLowerCase() as AnimalDatum["diet"],
+        }))
+        .filter((d) => d.name && d.speed > 0 && ["herbivore", "omnivore", "carnivore"].includes(d.diet))
+        .slice(0, 20);
+
+      const svg = d3.select(ref.current);
+      svg.selectAll("*").remove();
+
+      const width = 700;
+      const height = 400;
+      const margin = { top: 30, right: 100, bottom: 70, left: 50 };
+
+      const x = d3.scaleBand()
+        .domain(data.map((d) => d.name))
+        .range([margin.left, width - margin.right])
+        .padding(0.2);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(data, (d) => d.speed) || 100])
+        .nice()
+        .range([height - margin.bottom, margin.top]);
+
+      const color = d3.scaleOrdinal<string>()
+        .domain(["carnivore", "herbivore", "omnivore"])
+        .range(["red", "green", "orange"]);
+
+      // Bars
+      svg.selectAll("rect.bar")
+        .data(data)
+        .enter()
+        .append("rect")
+        .attr("class", "bar")
+        .attr("x", (d) => x(d.name)!)
+        .attr("y", (d) => y(d.speed))
+        .attr("width", x.bandwidth())
+        .attr("height", (d) => height - margin.bottom - y(d.speed))
+        .attr("fill", (d) => color(d.diet));
+
+      // Axes
+      svg.append("g")
+        .attr("transform", `translate(0,${height - margin.bottom})`)
+        .call(d3.axisBottom(x))
+        .selectAll("text")
+        .attr("transform", "rotate(-40)")
+        .style("text-anchor", "end");
+
+      svg.append("g")
+        .attr("transform", `translate(${margin.left},0)`)
+        .call(d3.axisLeft(y));
+
+      // Legend
+      ["carnivore", "herbivore", "omnivore"].forEach((diet, i) => {
+        svg.append("rect")
+          .attr("x", width - margin.right + 10)
+          .attr("y", margin.top + i * 20)
+          .attr("width", 12)
+          .attr("height", 12)
+          .attr("fill", color(diet));
+
+        svg.append("text")
+          .attr("x", width - margin.right + 28)
+          .attr("y", margin.top + i * 20 + 10)
+          .text(diet)
+          .attr("font-size", "12px");
+      });
+    });
   }, []);
 
-  useEffect(() => {
-    // Clear any previous SVG to avoid duplicates when React hot-reloads
-    if (graphRef.current) {
-      graphRef.current.innerHTML = "";
-    }
-
-    if (animalData.length === 0) return;
-
-    // Set up chart dimensions and margins
-    const containerWidth = graphRef.current?.clientWidth ?? 800;
-    const containerHeight = graphRef.current?.clientHeight ?? 500;
-
-    // Set up chart dimensions and margins
-    const width = Math.max(containerWidth, 600); // Minimum width of 600px
-    const height = Math.max(containerHeight, 400); // Minimum height of 400px
-    const margin = { top: 70, right: 60, bottom: 80, left: 100 };
-
-    // Create the SVG element where D3 will draw the chart
-    // https://github.com/d3/d3-selection
-    const svg  = select(graphRef.current!)
-      .append<SVGSVGElement>("svg")
-      .attr("width", width)
-      .attr("height", height)
-
-    // TODO: Implement the rest of the graph
-    // HINT: Look up the documentation at these links
-    // https://github.com/d3/d3-scale#band-scales
-    // https://github.com/d3/d3-scale#linear-scales
-    // https://github.com/d3/d3-scale#ordinal-scales
-    // https://github.com/d3/d3-axis
-  }, [animalData]);
-
-  // TODO: Return the graph
-  return (
-    // Placeholder so that this compiles. Delete this below:
-    <div>
-      <h1> TODO: Delete this div in `animal-speed-graph.tsx` and implement the graph: </h1>
-    </div>
-  );
+  return <svg ref={ref} viewBox="0 0 700 400" className="w-full h-auto" />;
 }
