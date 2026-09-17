@@ -1,4 +1,5 @@
 "use client";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TypographyH2, TypographyP } from "@/components/ui/typography";
@@ -35,7 +36,10 @@ export default function SpeciesChatbot() {
         throw new Error(data.error ?? "Unable to get a chatbot response.");
       }
 
-      setChatLog((currentLog) => [...currentLog, { role: "bot", content: data.response ?? "No response generated." }]);
+      setChatLog((currentLog) => [
+        ...currentLog,
+        { role: "bot", content: data.response ?? "No response generated." },
+      ]);
     } catch (error) {
       console.error("Chatbot request failed:", error);
       setChatLog((currentLog) => [
@@ -47,7 +51,7 @@ export default function SpeciesChatbot() {
     }
   };
 
-return (
+  return (
     <>
       <TypographyH2>Species Chatbot</TypographyH2>
       <div className="mt-4 flex gap-4">
@@ -85,18 +89,19 @@ return (
               </div>
             ))
           )}
+          {isLoading && <p className="text-sm text-muted-foreground">Thinking...</p>}
         </div>
         {/* Input and submission */}
         <form onSubmit={(event) => void handleSubmit(event)} className="mt-4 flex items-center gap-2">
-            <Input
+          <Input
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(event) => setMessage(event.target.value)}
             placeholder="Ask about a species..."
-              disabled={isLoading}
+            disabled={isLoading}
           />
-            <Button type="submit" disabled={isLoading || !message.trim()}>
-              {isLoading ? "Sending..." : "Send"}
-            </Button>
+          <Button type="submit" disabled={isLoading || !message.trim()}>
+            {isLoading ? "Sending..." : "Send"}
+          </Button>
         </form>
       </div>
     </>
