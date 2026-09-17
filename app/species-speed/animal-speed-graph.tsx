@@ -1,6 +1,7 @@
 /* eslint-disable */
 "use client";
 import { useEffect, useRef } from "react";
+// @ts-ignore
 import * as d3 from "d3";
 
 interface AnimalDatum {
