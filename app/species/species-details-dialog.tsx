@@ -44,8 +44,8 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
   const [image, setImage] = useState(species.image ?? "");
   const [description, setDescription] = useState(species.description ?? "");
   //const isAuthor = sessionId === species.author;
-  const isAuthor = sessionId === species.author && species.id > 6;
-  
+
+  const isAuthor = sessionId === species.author && species.id > 16;
   const resetForm = () => {
     setScientificName(species.scientific_name);
     setCommonName(species.common_name ?? "");
