@@ -14,6 +14,7 @@ interface SpeciesCardProps {
 
 export default function SpeciesCard({ species, sessionId }: SpeciesCardProps) {
   const [imageError, setImageError] = useState(false);
+  const isAuthor = species.author === sessionId;
 
   return (
     <div className="m-4 w-72 min-w-72 flex-none rounded border-2 p-3 shadow">
