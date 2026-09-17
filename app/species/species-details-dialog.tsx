@@ -22,6 +22,11 @@ import type { Database } from "@/lib/schema";
 type Species = Database["public"]["Tables"]["species"]["Row"];
 type Kingdom = Database["public"]["Enums"]["kingdom"];
 
+interface AuthorProfile {
+  display_name: string;
+  email: string;
+}
+
 const kingdoms = ["Animalia", "Plantae", "Fungi", "Protista", "Archaea", "Bacteria"] as const;
 
 interface SpeciesDetailsDialogProps {
@@ -44,8 +49,29 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
   const [image, setImage] = useState(species.image ?? "");
   const [description, setDescription] = useState(species.description ?? "");
   const [endangered, setEndangered] = useState<boolean>(Boolean(species.endangered));
+  const [authorProfile, setAuthorProfile] = useState<AuthorProfile | null>(null);
 
   const isAuthor = sessionId === species.author && species.id > 16;
+
+  // Fetch author profile information when opening the modal
+  useEffect(() => {
+    if (!open || !species.author) return;
+
+    const fetchAuthor = async () => {
+      const supabase = createBrowserSupabaseClient();
+      const { data } = await supabase
+        .from("profiles")
+        .select("display_name, email")
+        .eq("id", species.author)
+        .maybeSingle();
+
+      if (data) {
+        setAuthorProfile(data as AuthorProfile);
+      }
+    };
+
+    void fetchAuthor();
+  }, [open, species.author]);
 
   const resetForm = () => {
     setScientificName(species.scientific_name);
@@ -179,6 +205,16 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
                   <span className="font-semibold text-red-600">Yes</span>
                 ) : (
                   <span className="text-slate-600">No</span>
+                )}
+              </p>
+              <p>
+                <strong>Added By:</strong>{" "}
+                {authorProfile ? (
+                  <span className="text-slate-700">
+                    {authorProfile.display_name} ({authorProfile.email})
+                  </span>
+                ) : (
+                  <span className="italic text-slate-500">Starter Record</span>
                 )}
               </p>
               <div>
