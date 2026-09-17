@@ -43,9 +43,10 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
   );
   const [image, setImage] = useState(species.image ?? "");
   const [description, setDescription] = useState(species.description ?? "");
-  //const isAuthor = sessionId === species.author;
+  const [endangered, setEndangered] = useState<boolean>(Boolean(species.endangered));
 
   const isAuthor = sessionId === species.author && species.id > 16;
+
   const resetForm = () => {
     setScientificName(species.scientific_name);
     setCommonName(species.common_name ?? "");
@@ -53,6 +54,7 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
     setTotalPopulation(species.total_population !== null ? species.total_population.toString() : "");
     setImage(species.image ?? "");
     setDescription(species.description ?? "");
+    setEndangered(Boolean(species.endangered));
     setImageError(false);
   };
 
@@ -63,6 +65,7 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
     setTotalPopulation(species.total_population !== null ? species.total_population.toString() : "");
     setImage(species.image ?? "");
     setDescription(species.description ?? "");
+    setEndangered(Boolean(species.endangered));
     setImageError(false);
   }, [species]);
 
@@ -73,12 +76,28 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm("Are you sure you want to delete this species?")) return;
+
+    setLoading(true);
+    const supabase = createBrowserSupabaseClient();
+    const { error } = await supabase.from("species").delete().eq("id", species.id);
+    setLoading(false);
+
+    if (error) {
+      alert(`Error deleting species: ${error.message}`);
+      return;
+    }
+
+    setOpen(false);
+    router.refresh();
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!isAuthor) return;
 
     setLoading(true);
-    // Update the species record through the browser Supabase client.
     const supabase = createBrowserSupabaseClient();
     const { error } = await supabase
       .from("species")
@@ -89,6 +108,7 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
         total_population: totalPopulation.trim() ? Number(totalPopulation) : null,
         image: image.trim() || null,
         description: description.trim() || null,
+        endangered,
       })
       .eq("id", species.id);
 
@@ -153,6 +173,14 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
                 <strong>Total Population:</strong>{" "}
                 {species.total_population !== null ? species.total_population.toLocaleString() : "Not specified"}
               </p>
+              <p>
+                <strong>Endangered:</strong>{" "}
+                {species.endangered ? (
+                  <span className="font-semibold text-red-600">Yes</span>
+                ) : (
+                  <span className="text-slate-600">No</span>
+                )}
+              </p>
               <div>
                 <strong>Description:</strong>
                 <p className="mt-1 whitespace-pre-wrap text-slate-700">{species.description ?? "None provided."}</p>
@@ -160,9 +188,14 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
             </div>
 
             {isAuthor && (
-              <Button type="button" variant="secondary" className="w-full" onClick={() => setIsEditing(true)}>
-                Edit Species
-              </Button>
+              <div className="flex gap-2 pt-2">
+                <Button type="button" variant="secondary" className="flex-1" onClick={() => setIsEditing(true)}>
+                  Edit Species
+                </Button>
+                <Button type="button" variant="destructive" onClick={() => void handleDelete()} disabled={loading}>
+                  Delete
+                </Button>
+              </div>
             )}
           </div>
         ) : (
@@ -205,6 +238,18 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
                 value={totalPopulation}
                 onChange={(event) => setTotalPopulation(event.target.value)}
               />
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                id={`endangered-${species.id}`}
+                type="checkbox"
+                checked={endangered}
+                onChange={(e) => setEndangered(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor={`endangered-${species.id}`} className="cursor-pointer">
+                Classified as Endangered
+              </Label>
             </div>
             <div>
               <Label htmlFor={`image-${species.id}`}>Image URL</Label>

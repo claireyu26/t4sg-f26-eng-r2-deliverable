@@ -23,9 +23,6 @@ import { useState, type BaseSyntheticEvent } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-// We use zod (z) to define a schema for the "Add species" form.
-// zod handles validation of the input values with methods like .string(), .nullable(). It also processes the form inputs with .transform() before the inputs are sent to the database.
-
 // Define kingdom enum for use in Zod schema and displaying dropdown options in the form
 const kingdoms = z.enum(["Animalia", "Plantae", "Fungi", "Protista", "Archaea", "Bacteria"]);
 
@@ -39,37 +36,29 @@ const speciesSchema = z.object({
   common_name: z
     .string()
     .nullable()
-    // Transform empty string or only whitespace input to null before form submission, and trim whitespace otherwise
     .transform((val) => (!val || val.trim() === "" ? null : val.trim())),
   kingdom: kingdoms,
   total_population: z.number().int().positive().min(1).nullable(),
+  endangered: z.boolean().default(false),
   image: z
     .string()
     .url()
     .nullable()
-    // Transform empty string or only whitespace input to null before form submission, and trim whitespace otherwise
     .transform((val) => (!val || val.trim() === "" ? null : val.trim())),
   description: z
     .string()
     .nullable()
-    // Transform empty string or only whitespace input to null before form submission, and trim whitespace otherwise
     .transform((val) => (!val || val.trim() === "" ? null : val.trim())),
 });
 
 type FormData = z.infer<typeof speciesSchema>;
 
-// Default values for the form fields.
-/* Because the react-hook-form (RHF) used here is a controlled form (not an uncontrolled form),
-fields that are nullable/not required should explicitly be set to `null` by default.
-Otherwise, they will be `undefined` by default, which will raise warnings because `undefined` conflicts with controlled components.
-All form fields should be set to non-undefined default values.
-Read more here: https://legacy.react-hook-form.com/api/useform/
-*/
 const defaultValues: Partial<FormData> = {
   scientific_name: "",
   common_name: null,
   kingdom: "Animalia",
   total_population: null,
+  endangered: false,
   image: null,
   description: null,
 };
@@ -77,10 +66,8 @@ const defaultValues: Partial<FormData> = {
 export default function AddSpeciesDialog({ userId }: { userId: string }) {
   const router = useRouter();
 
-  // Control open/closed state of the dialog
   const [open, setOpen] = useState<boolean>(false);
 
-  // Instantiate form functionality with React Hook Form, passing in the Zod schema (for validation) and default values
   const form = useForm<FormData>({
     resolver: zodResolver(speciesSchema),
     defaultValues,
@@ -88,7 +75,6 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
   });
 
   const onSubmit = async (input: FormData) => {
-    // The `input` prop contains data that has already been processed by zod. We can now use it in a supabase query
     const supabase = createBrowserSupabaseClient();
     const { error } = await supabase.from("species").insert([
       {
@@ -98,11 +84,11 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
         kingdom: input.kingdom,
         scientific_name: input.scientific_name,
         total_population: input.total_population,
+        endangered: input.endangered,
         image: input.image,
       },
     ]);
 
-    // Catch and report errors from Supabase and exit the onSubmit function with an early 'return' if an error occurred.
     if (error) {
       return toast({
         title: "Something went wrong.",
@@ -111,16 +97,8 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
       });
     }
 
-    // Because Supabase errors were caught above, the remainder of the function will only execute upon a successful edit
-
-    // Reset form values to the default (empty) values.
-    // Practically, this line can be removed because router.refresh() also resets the form. However, we left it as a reminder that you should generally consider form "cleanup" after an add/edit operation.
     form.reset(defaultValues);
-
     setOpen(false);
-
-    // Refresh all server components in the current route. This helps display the newly created species because species are fetched in a server component, species/page.tsx.
-    // Refreshing that server component will display the new species from Supabase
     router.refresh();
 
     return toast({
@@ -164,7 +142,6 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
                 control={form.control}
                 name="common_name"
                 render={({ field }) => {
-                  // We must extract value from field and convert a potential defaultValue of `null` to "" because inputs can't handle null values: https://github.com/orgs/react-hook-form/discussions/4091
                   const { value, ...rest } = field;
                   return (
                     <FormItem>
@@ -212,7 +189,6 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
                     <FormItem>
                       <FormLabel>Total population</FormLabel>
                       <FormControl>
-                        {/* Using shadcn/ui form with number: https://github.com/shadcn-ui/ui/issues/421 */}
                         <Input
                           type="number"
                           value={value ?? ""}
@@ -228,9 +204,27 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
               />
               <FormField
                 control={form.control}
+                name="endangered"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center space-x-2 space-y-0 rounded-md border p-3">
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(field.value)}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300"
+                      />
+                    </FormControl>
+                    <FormLabel className="cursor-pointer font-normal">
+                      Classified as Endangered
+                    </FormLabel>
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
                 name="image"
                 render={({ field }) => {
-                  // We must extract value from field and convert a potential defaultValue of `null` to "" because inputs can't handle null values: https://github.com/orgs/react-hook-form/discussions/4091
                   const { value, ...rest } = field;
                   return (
                     <FormItem>
@@ -251,7 +245,6 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
                 control={form.control}
                 name="description"
                 render={({ field }) => {
-                  // We must extract value from field and convert a potential defaultValue of `null` to "" because textareas can't handle null values: https://github.com/orgs/react-hook-form/discussions/4091
                   const { value, ...rest } = field;
                   return (
                     <FormItem>
