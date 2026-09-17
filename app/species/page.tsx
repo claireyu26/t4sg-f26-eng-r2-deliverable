@@ -34,9 +34,8 @@ export default function SpeciesChatbotPage() {
         body: JSON.stringify({ message: userText }),
       });
 
-      const data = await res.json();
-      setMessages((prev) => [...prev, { role: "bot", content: data.response }]);
-    } catch {
+const data = (await res.json()) as { response?: string };
+setMessages((prev) => [...prev, { role: "bot", content: data.response ?? "No response received." }]);    } catch {
       setMessages((prev) => [
         ...prev,
         { role: "bot", content: "Error getting response. Please try again." },
