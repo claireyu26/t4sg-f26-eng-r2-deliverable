@@ -31,22 +31,26 @@ export default function AnimalSpeedGraph() {
       const height = 400;
       const margin = { top: 30, right: 100, bottom: 70, left: 50 };
 
-      const x = d3.scaleBand()
+      const x = d3
+        .scaleBand()
         .domain(data.map((d) => d.name))
         .range([margin.left, width - margin.right])
         .padding(0.2);
 
-      const y = d3.scaleLinear()
+      const y = d3
+        .scaleLinear()
         .domain([0, d3.max(data, (d) => d.speed) || 100])
         .nice()
         .range([height - margin.bottom, margin.top]);
 
-      const color = d3.scaleOrdinal<string>()
+      const color = d3
+        .scaleOrdinal<string>()
         .domain(["carnivore", "herbivore", "omnivore"])
         .range(["red", "green", "orange"]);
 
       // Bars
-      svg.selectAll("rect.bar")
+      svg
+        .selectAll("rect.bar")
         .data(data)
         .enter()
         .append("rect")
@@ -55,30 +59,33 @@ export default function AnimalSpeedGraph() {
         .attr("y", (d) => y(d.speed))
         .attr("width", x.bandwidth())
         .attr("height", (d) => height - margin.bottom - y(d.speed))
-        .attr("fill", (d) => color(d.diet));
+        .attr("fill", (d) => color(d.diet))
+        .append("title")
+        .text((d) => `${d.name}: ${d.speed} km/h`);
 
       // Axes
-      svg.append("g")
+      svg
+        .append("g")
         .attr("transform", `translate(0,${height - margin.bottom})`)
         .call(d3.axisBottom(x))
         .selectAll("text")
         .attr("transform", "rotate(-40)")
         .style("text-anchor", "end");
 
-      svg.append("g")
-        .attr("transform", `translate(${margin.left},0)`)
-        .call(d3.axisLeft(y));
+      svg.append("g").attr("transform", `translate(${margin.left},0)`).call(d3.axisLeft(y));
 
       // Legend
       ["carnivore", "herbivore", "omnivore"].forEach((diet, i) => {
-        svg.append("rect")
+        svg
+          .append("rect")
           .attr("x", width - margin.right + 10)
           .attr("y", margin.top + i * 20)
           .attr("width", 12)
           .attr("height", 12)
           .attr("fill", color(diet));
 
-        svg.append("text")
+        svg
+          .append("text")
           .attr("x", width - margin.right + 28)
           .attr("y", margin.top + i * 20 + 10)
           .text(diet)
@@ -87,5 +94,5 @@ export default function AnimalSpeedGraph() {
     });
   }, []);
 
-  return <svg ref={ref} viewBox="0 0 700 400" className="w-full h-auto" />;
+  return <svg ref={ref} viewBox="0 0 700 400" className="h-auto w-full" />;
 }
