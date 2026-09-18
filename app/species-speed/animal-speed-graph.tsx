@@ -48,6 +48,19 @@ export default function AnimalSpeedGraph() {
         .domain(["carnivore", "herbivore", "omnivore"])
         .range(["red", "green", "orange"]);
 
+      const tooltip = d3
+        .select("body")
+        .append("div")
+        .style("position", "fixed")
+        .style("pointer-events", "none")
+        .style("display", "none")
+        .style("background", "black")
+        .style("color", "white")
+        .style("padding", "6px 8px")
+        .style("border-radius", "4px")
+        .style("font-size", "12px")
+        .style("z-index", "50");
+
       // Bars
       svg
         .selectAll("rect.bar")
@@ -60,8 +73,17 @@ export default function AnimalSpeedGraph() {
         .attr("width", x.bandwidth())
         .attr("height", (d) => height - margin.bottom - y(d.speed))
         .attr("fill", (d) => color(d.diet))
-        .append("title")
-        .text((d) => `${d.name}: ${d.speed} km/h`);
+        .on("mouseenter", (event, d) => {
+          tooltip
+            .text(`${d.name}: ${d.speed} km/h`)
+            .style("left", `${event.clientX + 10}px`)
+            .style("top", `${event.clientY - 30}px`)
+            .style("display", "block");
+        })
+        .on("mousemove", (event) => {
+          tooltip.style("left", `${event.clientX + 10}px`).style("top", `${event.clientY - 30}px`);
+        })
+        .on("mouseleave", () => tooltip.style("display", "none"));
 
       // Axes
       svg
