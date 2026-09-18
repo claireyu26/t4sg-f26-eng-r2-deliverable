@@ -24,10 +24,8 @@ import { useState, type BaseSyntheticEvent } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-// Define kingdom enum for use in Zod schema and displaying dropdown options in the form
 const kingdoms = z.enum(["Animalia", "Plantae", "Fungi", "Protista", "Archaea", "Bacteria"]);
 
-// Use Zod to define the shape + requirements of a Species entry; used in form validation
 const speciesSchema = z.object({
   scientific_name: z
     .string()
@@ -108,6 +106,7 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
     }
 
     form.reset(defaultValues);
+    setWikipediaQuery("");
     setOpen(false);
     router.refresh();
 
@@ -131,9 +130,7 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
     setIsSearchingWikipedia(true);
 
     try {
-      const response = await fetch(
-        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(search)}`,
-      );
+      const response = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(search)}`);
 
       if (!response.ok) {
         return toast({
@@ -206,11 +203,7 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
                       }
                     }}
                   />
-                  <Button
-                    type="button"
-                    onClick={() => void searchWikipedia()}
-                    disabled={isSearchingWikipedia}
-                  >
+                  <Button type="button" onClick={() => void searchWikipedia()} disabled={isSearchingWikipedia}>
                     <Search className="mr-2 h-4 w-4" />
                     {isSearchingWikipedia ? "Searching..." : "Search"}
                   </Button>
@@ -306,9 +299,7 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
                         className="h-4 w-4 rounded border-gray-300"
                       />
                     </FormControl>
-                    <FormLabel className="cursor-pointer font-normal">
-                      Classified as Endangered
-                    </FormLabel>
+                    <FormLabel className="cursor-pointer font-normal">Classified as Endangered</FormLabel>
                   </FormItem>
                 )}
               />
