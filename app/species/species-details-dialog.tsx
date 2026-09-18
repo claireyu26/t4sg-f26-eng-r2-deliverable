@@ -27,6 +27,14 @@ interface AuthorProfile {
   email: string;
 }
 
+interface Comment {
+  id: number;
+  author: string;
+  content: string;
+  created_at: string;
+  profile: { display_name: string } | null;
+}
+
 const kingdoms = ["Animalia", "Plantae", "Fungi", "Protista", "Archaea", "Bacteria"] as const;
 
 interface SpeciesDetailsDialogProps {
@@ -50,6 +58,8 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
   const [description, setDescription] = useState(species.description ?? "");
   const [endangered, setEndangered] = useState<boolean>(Boolean(species.endangered));
   const [authorProfile, setAuthorProfile] = useState<AuthorProfile | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState("");
 
   const isAuthor = sessionId === species.author && species.id > 16;
 
@@ -72,6 +82,56 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
 
     void fetchAuthor();
   }, [open, species.author]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const fetchComments = async () => {
+      const supabase = createBrowserSupabaseClient();
+      const { data } = await supabase
+        .from("comments")
+        .select("id, author, content, created_at, profile:profiles(display_name)")
+        .eq("species_id", species.id)
+        .order("created_at", { ascending: false });
+
+      setComments((data ?? []) as Comment[]);
+    };
+
+    void fetchComments();
+  }, [open, species.id]);
+
+  const handleAddComment = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const content = commentText.trim();
+    if (!content) return;
+
+    const supabase = createBrowserSupabaseClient();
+    const { data, error } = await supabase
+      .from("comments")
+      .insert({ species_id: species.id, author: sessionId, content })
+      .select("id, author, content, created_at, profile:profiles(display_name)")
+      .single();
+
+    if (error) {
+      alert(`Error adding comment: ${error.message}`);
+      return;
+    }
+
+    setComments((currentComments) => [data as Comment, ...currentComments]);
+    setCommentText("");
+  };
+
+  const handleDeleteComment = async (commentId: number) => {
+    const supabase = createBrowserSupabaseClient();
+    const { error } = await supabase.from("comments").delete().eq("id", commentId).eq("author", sessionId);
+
+    if (error) {
+      alert(`Error deleting comment: ${error.message}`);
+      return;
+    }
+
+    setComments((currentComments) => currentComments.filter((comment) => comment.id !== commentId));
+  };
 
   const resetForm = () => {
     setScientificName(species.scientific_name);
@@ -221,6 +281,48 @@ export default function SpeciesDetailsDialog({ species, sessionId }: SpeciesDeta
                 <strong>Description:</strong>
                 <p className="mt-1 whitespace-pre-wrap text-slate-700">{species.description ?? "None provided."}</p>
               </div>
+            </div>
+
+            <div className="space-y-3 border-t pt-3">
+              <h3 className="font-semibold">Comments</h3>
+              <form onSubmit={(event) => void handleAddComment(event)} className="space-y-2">
+                <Textarea
+                  placeholder="Leave a comment"
+                  value={commentText}
+                  onChange={(event) => setCommentText(event.target.value)}
+                  rows={3}
+                />
+                <Button type="submit" disabled={!commentText.trim()}>
+                  Add Comment
+                </Button>
+              </form>
+              {comments.length === 0 ? (
+                <p className="text-sm text-slate-500">No comments yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="rounded border p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium">{comment.profile?.display_name ?? "User"}</p>
+                        {comment.author === sessionId && (
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => void handleDeleteComment(comment.id)}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                      <p className="mt-1 whitespace-pre-wrap text-sm">{comment.content}</p>
+                      <p className="mt-2 text-xs text-slate-500">
+                        {new Date(comment.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {isAuthor && (
