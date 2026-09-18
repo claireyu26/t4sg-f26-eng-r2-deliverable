@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/use-toast";
 import { createBrowserSupabaseClient } from "@/lib/client-utils";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type BaseSyntheticEvent } from "react";
 import { useForm } from "react-hook-form";
@@ -53,6 +54,13 @@ const speciesSchema = z.object({
 
 type FormData = z.infer<typeof speciesSchema>;
 
+interface WikipediaSummary {
+  extract?: string;
+  thumbnail?: {
+    source?: string;
+  };
+}
+
 const defaultValues: Partial<FormData> = {
   scientific_name: "",
   common_name: null,
@@ -67,6 +75,8 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
   const router = useRouter();
 
   const [open, setOpen] = useState<boolean>(false);
+  const [wikipediaQuery, setWikipediaQuery] = useState("");
+  const [isSearchingWikipedia, setIsSearchingWikipedia] = useState(false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(speciesSchema),
@@ -107,6 +117,62 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
     });
   };
 
+  const searchWikipedia = async () => {
+    const search = wikipediaQuery.trim();
+
+    if (!search) {
+      return toast({
+        title: "Enter a species name.",
+        description: "Search using a scientific or common name.",
+        variant: "destructive",
+      });
+    }
+
+    setIsSearchingWikipedia(true);
+
+    try {
+      const response = await fetch(
+        `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(search)}`,
+      );
+
+      if (!response.ok) {
+        return toast({
+          title: "No Wikipedia article found.",
+          description: `Wikipedia could not find an article for "${search}".`,
+          variant: "destructive",
+        });
+      }
+
+      const summary = (await response.json()) as WikipediaSummary;
+      const description = summary.extract?.trim();
+      const image = summary.thumbnail?.source;
+
+      if (!description && !image) {
+        return toast({
+          title: "No species information found.",
+          description: `The Wikipedia article for "${search}" did not include autofill information.`,
+          variant: "destructive",
+        });
+      }
+
+      form.setValue("description", description ?? null, { shouldValidate: true });
+      form.setValue("image", image ?? null, { shouldValidate: true });
+
+      return toast({
+        title: "Species information found.",
+        description: "The description and image fields were autofilled from Wikipedia.",
+      });
+    } catch {
+      return toast({
+        title: "Wikipedia search failed.",
+        description: "Please check your connection and try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSearchingWikipedia(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -125,6 +191,31 @@ export default function AddSpeciesDialog({ userId }: { userId: string }) {
         <Form {...form}>
           <form onSubmit={(e: BaseSyntheticEvent) => void form.handleSubmit(onSubmit)(e)}>
             <div className="grid w-full items-center gap-4">
+              <div className="space-y-2">
+                <FormLabel htmlFor="wikipedia-search">Autofill from Wikipedia</FormLabel>
+                <div className="flex gap-2">
+                  <Input
+                    id="wikipedia-search"
+                    placeholder="Search a scientific or common name"
+                    value={wikipediaQuery}
+                    onChange={(event) => setWikipediaQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void searchWikipedia();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => void searchWikipedia()}
+                    disabled={isSearchingWikipedia}
+                  >
+                    <Search className="mr-2 h-4 w-4" />
+                    {isSearchingWikipedia ? "Searching..." : "Search"}
+                  </Button>
+                </div>
+              </div>
               <FormField
                 control={form.control}
                 name="scientific_name"
